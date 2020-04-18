@@ -139,7 +139,7 @@ public class Cliente
 		}
 		else
 		{
-			System.out.println("Se envío el reto del cliente al servidor: " + DatatypeConverter.printBase64Binary(retoCifrado));
+			System.out.println("Se envió el reto del cliente al servidor");
 		}
 		
 		byte[] idClienteCifrado = Mns_Alg.cifrar(llaveBlowfish, Mns_Alg.BLOWFISH, Integer.toString(id_cliente));
@@ -150,8 +150,9 @@ public class Cliente
 		try 
 		{
 			String horario = Mns_Alg.descifrarHHMM(llaveBlowfish, Mns_Alg.BLOWFISH, DatatypeConverter.parseBase64Binary(respuestaServidor));
-			System.out.println("La hora estipulada por el servidor es: "+ horario);
+			System.out.println("La hora enviada por el servidor es: "+ horario);
 			writer.println(Mns_Alg.mns_OK());
+			System.out.println("Se terminó la ejecución correctamente.");
 			socket.close();
 		} 
 		catch (Exception e) 
