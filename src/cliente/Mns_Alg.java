@@ -86,10 +86,10 @@ public class Mns_Alg
 		try
 		{
 			Cipher cifrador = Cipher.getInstance(algoritmo);
-			byte[] textoClaro = texto.getBytes();
-			
+			byte[] textoByte = DatatypeConverter.parseBase64Binary(texto);
+
 			cifrador.init(Cipher.ENCRYPT_MODE, llave);
-			textoCifrado = cifrador.doFinal(textoClaro);
+			textoCifrado = cifrador.doFinal(textoByte);
 			return textoCifrado;
 		}
 		catch (Exception e) 
