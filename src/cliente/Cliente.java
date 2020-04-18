@@ -44,12 +44,15 @@ public class Cliente
 		BufferedReader br = new BufferedReader(input);
 		puerto = Integer.parseInt(br.readLine());
 
+		//Creacion del id del cliente
 		Random numAleatorio = new Random();
 		id_cliente = numAleatorio.nextInt(9999-1000+1) + 1000;
 
+		//asegurando conexion con el cliente
 		System.out.println("Empezando cliente "+ id_cliente +" en puerto: " + puerto);        
 		Security.addProvider((Provider)new BouncyCastleProvider());
 
+		//preparando el socket para comunicacion
 		socket = new Socket(HOST, puerto);
 		PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 		br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -57,6 +60,8 @@ public class Cliente
 		System.out.println("Cliente inicializado en el puerto: "+puerto);
 		writer.println(Mns_Alg.mns_inicComunicacion());
 
+		
+		//respuesta del servidor 
 		String respuestaServidor = br.readLine();
 
 		if(Mns_Alg.verificarError(respuestaServidor))
@@ -81,17 +86,20 @@ public class Cliente
 		{
 			System.out.println("Se enviaron los algoritmos seleccionados");
 		}
-
+		
+		//creacion del par de llave  publica y privada del del cliente
 		try 
 		{keyPairCliente = Mns_Alg.llaveCliente();}
 		catch (Exception e) 
 		{System.out.println("Error en la creación de la llave: " + e.getMessage());}
 
+		//creacion de certifaco del cliente
 		try 
 		{certificadoCliente = generarCertificadoCliente(keyPairCliente);}
 		catch (Exception e) 
 		{System.out.println("Error en la creación del certificado: " + e.getMessage());}
 
+		//envio del certificado del cliente al servidor
 		byte[] certificadoByte = certificadoCliente.getEncoded();
 		String certificadoString = DatatypeConverter.printBase64Binary(certificadoByte);
 		writer.println(certificadoString);
@@ -107,6 +115,7 @@ public class Cliente
 			System.out.println("Se envío el certificado digital del cliente al servidor");
 		}
 
+		//obtencion del certificado del servidor
 		String strCertificadoServidor = br.readLine(); 
 		System.out.println("Se recibió el certificado digital del servidor");
 		
@@ -121,13 +130,17 @@ public class Cliente
 			socket.close();
 		}
 		
+		//recepcion de C(K_C+,K_SC)
 		respuestaServidor = br.readLine();
 		SecretKey llaveBlowfish = Mns_Alg.llavePrivadaServidor(keyPairCliente, respuestaServidor);
 		
+		//recepcion de C(K_SC,<reto>)
 		respuestaServidor = br.readLine();
 		byte[] reto = Mns_Alg.descifrar(llaveBlowfish, Mns_Alg.BLOWFISH, DatatypeConverter.parseBase64Binary(respuestaServidor));
 		System.out.println("Se recibió el reto: "+ DatatypeConverter.printBase64Binary(reto));
 		
+		
+		//envio de C(K_S+,<reto>)
 		byte[] retoCifrado = Mns_Alg.cifrar(certificadoServidor.getPublicKey(), Mns_Alg.RSA, DatatypeConverter.printBase64Binary(reto));
 		writer.println(DatatypeConverter.printBase64Binary(retoCifrado));
 		
@@ -142,10 +155,13 @@ public class Cliente
 			System.out.println("Se envió el reto del cliente al servidor");
 		}
 		
+		//envio de C(K_SC,<idUsuario>)
 		byte[] idClienteCifrado = Mns_Alg.cifrar(llaveBlowfish, Mns_Alg.BLOWFISH, Integer.toString(id_cliente));
 		writer.println(DatatypeConverter.printBase64Binary(idClienteCifrado));
 		System.out.println("Se envío el identificador del cliente al servidor");
 		
+		
+		//recepcion de C(K_SC,<hhmm>)
 		respuestaServidor = br.readLine();
 		try 
 		{
