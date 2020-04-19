@@ -28,31 +28,59 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 public class Cliente 
 {
+	/**
+	 * Socket de comunicación
+	 */
 	private static Socket socket;
+	/**
+	 * Identificador del cliente
+	 */
 	private static int id_cliente;
+	/**
+	 * Certificado digital del cliente
+	 */
 	private static X509Certificate certificadoCliente;
+	/**
+	 * Certificado digital del servidor
+	 */
 	private static X509Certificate certificadoServidor;
+	/**
+	 * Tupla de llave (pública-privada del cliente
+	 */
 	private static KeyPair keyPairCliente;
+	/**
+	 * Puerto de comunicación entre cliente-servidor
+	 */
 	private static int puerto;
-	//Host para la conexión
+	/**
+	 * Host para la conexión
+	 */
 	private final static String HOST = "localhost"; 
-
+	/**
+	 * Métdo main del cliente
+	 * @param args
+	 * @throws Exception
+	 */
 	public static void main(String[] args) throws Exception
 	{
+		// -----------------------------------------------------------------
+	    // Etapa1: Seleccionar algoritmos e iniciar sesión
+	    // -----------------------------------------------------------------
+		
 		System.out.println("Establezca el puerto conexión: ");
 		InputStreamReader input = new InputStreamReader(System.in);
 		BufferedReader br = new BufferedReader(input);
 		puerto = Integer.parseInt(br.readLine());
 
-		//Creacion del id del cliente
+		//Creación del identificador del cliente
 		Random numAleatorio = new Random();
 		id_cliente = numAleatorio.nextInt(9999-1000+1) + 1000;
 
-		//asegurando conexion con el cliente
+		//Asegurando conexion con el cliente
 		System.out.println("Empezando cliente "+ id_cliente +" en puerto: " + puerto);        
 		Security.addProvider((Provider)new BouncyCastleProvider());
 
-		//preparando el socket para comunicacion
+		//Preparando el socket para comunicación
 		socket = new Socket(HOST, puerto);
 		PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 		br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -60,8 +88,7 @@ public class Cliente
 		System.out.println("Cliente inicializado en el puerto: "+puerto);
 		writer.println(Mns_Alg.mns_inicComunicacion());
 
-		
-		//respuesta del servidor 
+		//Respuesta del servidor 
 		String respuestaServidor = br.readLine();
 
 		if(Mns_Alg.verificarError(respuestaServidor))
@@ -87,19 +114,23 @@ public class Cliente
 			System.out.println("Se enviaron los algoritmos seleccionados");
 		}
 		
-		//creacion del par de llave  publica y privada del del cliente
+		// -----------------------------------------------------------------
+	    // Etapa2: Autenticación de	cliente	y servidor
+	    // -----------------------------------------------------------------
+		
+		//Creación del par de llave pública y privada del del cliente
 		try 
 		{keyPairCliente = Mns_Alg.llaveCliente();}
 		catch (Exception e) 
 		{System.out.println("Error en la creación de la llave: " + e.getMessage());}
 
-		//creacion de certifaco del cliente
+		//Creación de certifado del cliente
 		try 
 		{certificadoCliente = generarCertificadoCliente(keyPairCliente);}
 		catch (Exception e) 
 		{System.out.println("Error en la creación del certificado: " + e.getMessage());}
 
-		//envio del certificado del cliente al servidor
+		//Envío del certificado del cliente al servidor
 		byte[] certificadoByte = certificadoCliente.getEncoded();
 		String certificadoString = DatatypeConverter.printBase64Binary(certificadoByte);
 		writer.println(certificadoString);
@@ -115,7 +146,7 @@ public class Cliente
 			System.out.println("Se envío el certificado digital del cliente al servidor");
 		}
 
-		//obtencion del certificado del servidor
+		//Obtención del certificado del servidor
 		String strCertificadoServidor = br.readLine(); 
 		System.out.println("Se recibió el certificado digital del servidor");
 		
@@ -130,17 +161,17 @@ public class Cliente
 			socket.close();
 		}
 		
-		//recepcion de C(K_C+,K_SC)
+		//Recepción de C(K_C+,K_SC)
 		respuestaServidor = br.readLine();
 		SecretKey llaveBlowfish = Mns_Alg.llavePrivadaServidor(keyPairCliente, respuestaServidor);
 		
-		//recepcion de C(K_SC,<reto>)
+		//Recepción de C(K_SC,<reto>)
 		respuestaServidor = br.readLine();
 		byte[] reto = Mns_Alg.descifrar(llaveBlowfish, Mns_Alg.BLOWFISH, DatatypeConverter.parseBase64Binary(respuestaServidor));
 		System.out.println("Se recibió el reto: "+ DatatypeConverter.printBase64Binary(reto));
 		
 		
-		//envio de C(K_S+,<reto>)
+		//Envío de C(K_S+,<reto>)
 		byte[] retoCifrado = Mns_Alg.cifrar(certificadoServidor.getPublicKey(), Mns_Alg.RSA, DatatypeConverter.printBase64Binary(reto));
 		writer.println(DatatypeConverter.printBase64Binary(retoCifrado));
 		
@@ -155,13 +186,16 @@ public class Cliente
 			System.out.println("Se envió el reto del cliente al servidor");
 		}
 		
-		//envio de C(K_SC,<idUsuario>)
+		// -----------------------------------------------------------------
+	    // Etapa3: Reporte y manejo	de la actualización
+	    // -----------------------------------------------------------------
+		
+		//Envío de C(K_SC,<idUsuario>)
 		byte[] idClienteCifrado = Mns_Alg.cifrar(llaveBlowfish, Mns_Alg.BLOWFISH, Integer.toString(id_cliente));
 		writer.println(DatatypeConverter.printBase64Binary(idClienteCifrado));
 		System.out.println("Se envío el identificador del cliente al servidor");
 		
-		
-		//recepcion de C(K_SC,<hhmm>)
+		//Recepción de C(K_SC,<hhmm>)
 		respuestaServidor = br.readLine();
 		try 
 		{
@@ -178,7 +212,12 @@ public class Cliente
 		}
 		
 	}
-
+	/**
+	 * Transforma una cadena de caracteres en un certificado X509
+	 * @param certServidor Cadena de caracteres que conforman el certificado
+	 * @return Certificado digital de la forma X509
+	 * @throws CertificateException En caso de que no se pueda formar el certificado correctamente
+	 */
 	private static X509Certificate convertirCertificado(String certServidor) throws CertificateException
 	{
 		byte[] certiServidorByte = new byte[520];
@@ -187,7 +226,12 @@ public class Cliente
 		InputStream in = new ByteArrayInputStream(certiServidorByte);
 		return (X509Certificate)creador.generateCertificate(in);
 	}
-	
+	/**
+	 * Genera el certificado digital del cliente con base a una tupla de llave(pública-privada)
+	 * @param kepair Tupla de llave (pública-privada) del cliente
+	 * @return certificado digital del cliente
+	 * @throws Exception En caso de que no se pueda crear correctamente el certificado
+	 */
 	private static X509Certificate generarCertificadoCliente(KeyPair kepair) throws Exception
 	{
 		Calendar endCalendar = Calendar.getInstance();
